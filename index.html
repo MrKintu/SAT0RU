@@ -156,6 +156,20 @@
         return { x: r * Math.sin(phi) * Math.cos(theta), y: r * Math.sin(phi) * Math.sin(theta), z: r * Math.cos(phi), r: 0.6, g: 0.5, b: 1, s: 2.5 };
     }
 
+    function getBlue(i) {
+        const t = i / COUNT;
+        const collapseRadius = 2 * (1 - t); // Collapses from outer radius to center
+        const angle = Math.random() * Math.PI * 2;
+        const phi = Math.random() * Math.PI;
+        
+        return { 
+            x: collapseRadius * Math.sin(phi) * Math.cos(angle), 
+            y: collapseRadius * Math.sin(phi) * Math.sin(angle), 
+            z: collapseRadius * Math.cos(phi), 
+            r: 0.2, g: 0.6, b: 1, s: 1.5 + (1 - t) * 2 
+        };
+    }
+
     function getShrine(i) {
         const total = COUNT;
         if (i < total * 0.3) return { x: (Math.random()-0.5)*80, y: -15, z: (Math.random()-0.5)*80, r: 0.4, g: 0, b: 0, s: 0.8 };
@@ -190,11 +204,34 @@
                 drawLandmarks(canvasCtx, lm, {color: '#fff', lineWidth: 1, radius: 2});
 
                 const isUp = (t, p) => lm[t].y < lm[p].y;
+                const isSideThumbUp = () => {
+                    // Side profile thumbs-up: thumb pointing up, knuckles facing camera
+                    const thumbTip = lm[4];
+                    const thumbMcp = lm[2];
+                    const indexMcp = lm[5];
+                    const middleMcp = lm[9];
+                    const ringMcp = lm[13];
+                    const pinkyMcp = lm[17];
+                    
+                    // Thumb should be pointing up (thumb tip above thumb MCP)
+                    const thumbUp = thumbTip.y < thumbMcp.y;
+                    
+                    // Knuckles should be roughly aligned horizontally (facing camera)
+                    const knucklesAligned = Math.abs(indexMcp.y - middleMcp.y) < 0.15 && 
+                                       Math.abs(middleMcp.y - ringMcp.y) < 0.15 && 
+                                       Math.abs(ringMcp.y - pinkyMcp.y) < 0.15;
+                    
+                    // Thumb should be extended upward or slightly to side (more lenient for classic thumbs-up)
+                    const thumbExtended = Math.abs(thumbTip.x - indexMcp.x) > 0.05;
+                    
+                    return thumbUp && knucklesAligned && thumbExtended;
+                };
                 const pinch = Math.hypot(lm[8].x - lm[4].x, lm[8].y - lm[4].y);
                 
                 if (pinch < 0.04) detected = 'purple';
                 else if (isUp(8,6) && isUp(12,10) && isUp(16,14) && isUp(20,18)) detected = 'shrine';
                 else if (isUp(8,6) && isUp(12,10) && !isUp(16,14)) detected = 'void';
+                else if (isSideThumbUp()) detected = 'blue';
                 else if (isUp(8,6) && !isUp(12,10)) detected = 'red';
             });
         }
@@ -207,6 +244,7 @@
             'purple': { glowColor: '#bb00ff', name: "Secret Technique: Hollow Purple", bloomStrength: 4 },
             'void': { glowColor: '#00ffff', name: "Domain Expansion: Infinite Void", bloomStrength: 2 },
             'red': { glowColor: '#ff3333', name: "Reverse Cursed Technique: Red", bloomStrength: 2.5 },
+            'blue': { glowColor: '#0099ff', name: "Cursed Technique: Blue", bloomStrength: 3 },
             'neutral': { glowColor: '#00ffff', name: "Neutral State", bloomStrength: 1 }
         };
         return configs[tech] || configs['neutral'];
@@ -217,6 +255,7 @@
             'red': getRed,
             'void': getVoid,
             'purple': getPurple,
+            'blue': getBlue,
             'shrine': getShrine
         };
         return techniqueFunctions[tech] || null;
@@ -302,6 +341,10 @@
         } else if (currentTech === 'purple') {
             particles.rotation.z += 0.2; 
             particles.rotation.y += 0.05;
+        } else if (currentTech === 'blue') {
+            // Magnetic collapse rotation - rapid inward spiral
+            particles.rotation.z += 0.15;
+            particles.rotation.y += 0.1;
         } else if (currentTech === 'shrine') {
             // FORCE UPRIGHT: Reset and freeze all rotations
             particles.rotation.set(0, 0, 0); 
